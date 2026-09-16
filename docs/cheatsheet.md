@@ -35,7 +35,7 @@ $M stats                               # 体量统计
 
 | 变量 | 作用 |
 |---|---|
-| `PEER_PYTHON` | 指定 Python 解释器，绕过自动探测 |
+| `PEER_PYTHON` | 指定 Python 解释器。**权威**：设了就必须真能跑，否则启动器报错退出（127），不会悄悄换一个 |
 | `PEER_MEMORY_HOME` | 共享目录位置（默认 `~/.peer-memory`） |
 | `PEER_WORKBUDDY_HOME` | WorkBuddy 数据目录（默认 `~/.workbuddy`） |
 | `PEER_CLAUDE_HOME` | Claude Code 数据目录（默认 `~/.claude`） |

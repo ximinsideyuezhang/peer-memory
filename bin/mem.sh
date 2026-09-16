@@ -15,6 +15,8 @@
 #  executed once; only exit code 0 is accepted.
 #
 #  Override with:  PEER_PYTHON=/path/to/python sh mem.sh ...
+#  PEER_PYTHON is authoritative: if it is set but does not run, the launcher
+#  exits 127 instead of quietly picking a different interpreter.
 # ============================================================
 
 # --- resolve our own directory -----------------------------------------
@@ -78,12 +80,24 @@ try() {
     PY=$_c
 }
 
-# 1) explicit override
-[ -n "$PEER_PYTHON" ] && try "$PEER_PYTHON"
+# 1) explicit override — authoritative.
+#    When PEER_PYTHON is set we either honour it or fail loudly. Silently
+#    falling back to some other interpreter would mask a broken setup and let
+#    the same command behave differently on two machines that look identical.
+if [ -n "$PEER_PYTHON" ]; then
+    try "$PEER_PYTHON"
+    if [ -z "$PY" ]; then
+        echo "[peer-memory] No working Python 3 interpreter." >&2
+        echo "  PEER_PYTHON is set but is not a runnable Python 3: $PEER_PYTHON" >&2
+        exit 127
+    fi
+fi
 
 # 2) the usual names
-try python3
-try python
+if [ -z "$PY" ]; then
+    try python3
+    try python
+fi
 
 # 3) well-known absolute locations
 if [ -z "$PY" ]; then

@@ -53,10 +53,21 @@ function Test-PythonCandidate {
     } catch { return $false }
 }
 
-$candidates = New-Object 'System.Collections.Generic.List[string]'
+$py = $null
 
-# 0) explicit override
-if ($env:PEER_PYTHON) { $candidates.Add($env:PEER_PYTHON) }
+# 0) explicit override — authoritative, same rule as mem.sh:
+#    a broken PEER_PYTHON fails loudly instead of silently using another Python.
+if ($env:PEER_PYTHON) {
+    if (Test-PythonCandidate -Path $env:PEER_PYTHON) {
+        $py = $env:PEER_PYTHON
+    } else {
+        [Console]::Error.WriteLine('[peer-memory] No working Python 3 interpreter.')
+        [Console]::Error.WriteLine("  PEER_PYTHON is set but is not a runnable Python 3: $env:PEER_PYTHON")
+        exit 127
+    }
+}
+
+$candidates = New-Object 'System.Collections.Generic.List[string]'
 
 # 1) WorkBuddy bundled managed Python, newest version first
 $managedRoot = Join-Path $env:USERPROFILE '.workbuddy\binaries\python\versions'
@@ -85,9 +96,11 @@ foreach ($name in @('python.exe', 'python3.exe')) {
     'C:\Python311\python.exe'
 ) | ForEach-Object { $candidates.Add($_) }
 
-$py = $null
-foreach ($c in $candidates) {
-    if (Test-PythonCandidate -Path $c) { $py = $c; break }
+# 4) first candidate that actually runs
+if (-not $py) {
+    foreach ($c in $candidates) {
+        if (Test-PythonCandidate -Path $c) { $py = $c; break }
+    }
 }
 
 if (-not $py) {

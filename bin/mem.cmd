@@ -15,6 +15,8 @@ rem  %LOCALAPPDATA%\Microsoft\WindowsApps\python.exe
 rem  which exists on PATH but fails with exit code 9009.
 rem
 rem  Override with:  set PEER_PYTHON=C:\path\to\python.exe
+rem  PEER_PYTHON is authoritative: if it is set but does not run, the
+rem  launcher exits 127 instead of quietly picking a different interpreter.
 rem ============================================================
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>nul
@@ -28,8 +30,14 @@ if not exist "%SCRIPT%" (
     exit /b 1
 )
 
-rem --- 0) explicit override -------------------------------------
+rem --- 0) explicit override (authoritative) ---------------------
+rem  A broken PEER_PYTHON fails loudly instead of silently falling back to
+rem  another interpreter. Rationale is documented in bin/mem.sh.
+rem  Deliberately NOT written as a parenthesised block: the value is a path
+rem  and may contain ")" (e.g. "C:\Program Files (x86)\..."), which would
+rem  break block parsing.
 if defined PEER_PYTHON call :try "%PEER_PYTHON%"
+if defined PEER_PYTHON if not defined PY goto peer_python_bad
 
 rem --- 1) WorkBuddy bundled managed Python (newest first) ------
 if not defined PY (
@@ -89,3 +97,15 @@ for %%A in ("%CAND%") do if %%~zA EQU 0 exit /b
 if errorlevel 1 exit /b
 set "PY=%CAND%"
 exit /b
+
+rem ---------------------------------------------------------------
+rem  PEER_PYTHON was set but is unusable: fail loudly instead of
+rem  quietly running a different interpreter.
+rem  !PEER_PYTHON! is expanded at execution time, so a path containing
+rem  ")" or "&" cannot break parsing here.
+rem ---------------------------------------------------------------
+:peer_python_bad
+echo [peer-memory] No working Python 3 interpreter. 1>&2
+echo   PEER_PYTHON is set but is not a runnable Python 3: 1>&2
+echo   !PEER_PYTHON! 1>&2
+exit /b 127

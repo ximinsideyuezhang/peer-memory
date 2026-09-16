@@ -250,13 +250,16 @@ class PeerMemorySmokeTest(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
 
     def test_13_launcher_rejects_a_broken_interpreter(self):
-        """启动器的核心逻辑：只接受真能跑通的解释器。
+        """PEER_PYTHON 是权威的：设了但跑不通，就必须报错退出。
 
-        回归测试——Windows 上 python.exe 可能是个 0 字节存根，
-        任何"找到就用"的实现都会栽在这里。
+        回归测试，防两种真实故障：
+          1. 静默回退 —— 覆盖变量失效时悄悄换一个解释器，会让同一台机器上
+             两次相同的调用用上不同的 Python，配置错误被掩盖；
+          2. "找到就用" —— 候选只要存在就被采纳，不实际跑一次验证。
 
-        把 PATH 和 HOME 都隔离掉，确保除了那个假解释器之外
-        启动器找不到任何别的候选，这样才测得到"拒绝"这条路径。
+        测法：PATH 与 HOME 都隔离，只留那个一跑就失败的假解释器。
+        注意这里必须让 PEER_PYTHON 走**和探测同一套**的校验逻辑，
+        所以顺带覆盖了第 2 点。
         """
         launcher = REPO / "bin" / "mem.sh"
         if not launcher.exists():
@@ -290,6 +293,38 @@ class PeerMemorySmokeTest(unittest.TestCase):
         self.assertEqual(p.returncode, 127,
                          f"expected the launcher to reject it\n{p.stdout}\n{p.stderr}")
         self.assertIn("No working Python 3 interpreter", p.stderr)
+        # 证明走的是"覆盖变量权威"这条分支，而不是"哪里都找不到解释器"
+        self.assertIn("PEER_PYTHON", p.stderr)
+
+    def test_13b_launcher_rejects_a_zero_byte_interpreter(self):
+        """0 字节的假解释器必须被拒绝——这就是 Windows 上的真实故障形态。
+
+        %LOCALAPPDATA%\\Microsoft\\WindowsApps\\python.exe 是个 0 字节的
+        App Execution Alias：它确实在 PATH 上，`where python` 和
+        `Get-Command python` 都能找到它，但一执行就返回 9009。任何只看
+        "路径存在" 的实现都会选中它然后莫名失败。这里用同样的形态复现。
+        """
+        launcher = REPO / "bin" / "mem.sh"
+        sh = shutil.which("sh")
+        if not launcher.exists() or not sh:
+            self.skipTest("requires sh and bin/mem.sh")
+
+        zero = self.tmp / "zero-byte-python"
+        zero.write_bytes(b"")
+
+        env = dict(os.environ)
+        env["PEER_PYTHON"] = str(zero)
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        p = subprocess.run(
+            [sh, "bin/mem.sh", "tools"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", env=env, cwd=str(REPO))
+        self.assertEqual(p.returncode, 127,
+                         f"0-byte candidate must be rejected\n{p.stdout}\n{p.stderr}")
+        self.assertIn("No working Python 3 interpreter", p.stderr)
+        # 证明走的是"覆盖变量权威"这条分支，而不是"哪里都找不到解释器"
+        self.assertIn("PEER_PYTHON", p.stderr)
 
     def test_14_launcher_accepts_a_working_interpreter(self):
         launcher = REPO / "bin" / "mem.sh"
