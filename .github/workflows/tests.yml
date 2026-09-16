@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: smoke (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.9', '3.12']
+        include:
+          # 最低支持版本单独跑一次
+          - os: ubuntu-latest
+            python: '3.8'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Run smoke tests
+        run: python tests/test_smoke.py
+
+      - name: Check the engine compiles clean
+        run: python -m py_compile bin/mem.py

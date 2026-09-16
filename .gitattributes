@@ -1,0 +1,12 @@
+# Normalize line endings. Committing from Windows without this can hand
+# macOS/Linux users CRLF shell scripts, which fail to execute.
+* text=auto eol=lf
+
+# Windows batch files need CRLF for reliable label (`goto`/`call :label`) handling.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary-ish, leave untouched
+*.png binary
+*.jpg binary
+*.pdf binary

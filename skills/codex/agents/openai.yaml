@@ -1,0 +1,7 @@
+interface:
+  display_name: "Peer Memory"
+  short_description: "Read the other AI tools' memory on this machine"
+  default_prompt: "Use $peer-memory to check what I discussed in WorkBuddy or Claude Code."
+
+policy:
+  allow_implicit_invocation: true
